@@ -4,7 +4,7 @@ import time
 
 #path to classifier
 #path to video file
-cascade_src = 'myhaar6.xml'
+cascade_src = 'myhaar.xml'
 video_src = 'video//drugi.mkv'
 
 #read video
@@ -39,17 +39,12 @@ while True:
 	#Detect objects with different dimensions in frame
 	#output of function is list of rectangles
 	#parameters: image, scaleFactior, minNeighbors, flags, minSize, maxSize
-	cars = car_cascade.detectMultiScale(gray, 1.1, 7, 0, (24, 24))
+	cars = car_cascade.detectMultiScale(gray, 1.1, 13, 0, (24, 24))
 	
 	#drawing rectangle around detected object
 	#defining regions where object will show up
 	for (x, y, w, h) in cars:
-		if x > 135 and x < 295:
-			cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), 2)
-		if x >= 190 and x < 505:
-			cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), 2)
-		if x >= 260 and x < 719:
-			cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), 2)
+		cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), 2)
 	
 	#calculation of frame rate
 	fps = 1.0/(time.time() - start_time)
