@@ -3,12 +3,7 @@ import cv2
 carCascade = cv2.CascadeClassifier('myhaar.xml')
 video = cv2.VideoCapture('video//prvi.mkv')
 
-#WIDTH = 854
-#HEIGHT = 480
 
-#def distance(x1, y1, x2, y2):
-	
-	
 
 def tracker():
 	rectangleColor = (0, 0, 255)
@@ -22,8 +17,7 @@ def tracker():
 		if type(image) == type(None):
 			break
 		
-#		image = cv2.resize(image, (WIDTH, HEIGHT))
-		image = image[150:720, 0:1000]
+		image = image[150:720, 0:950]
 		resultImage = image.copy()
 		
 		frameCounter = frameCounter + 1
@@ -39,11 +33,14 @@ def tracker():
 			t_w = int(t_w)
 			t_h = int(t_h)
 			
-			if t_x + t_w >= 800:
+			x_center = t_x + 0.5 * t_w
+			y_center = t_y + 0.5 * t_h
+			
+			if t_x + t_w >= 780:
 				carIDtoDelete.append(carID)
-			if t_y <= 0:
+			
+			if x_center >= 300 and y_center >= 200:
 				carIDtoDelete.append(carID)
-
 				
 		for carID in carIDtoDelete:
 			print('Tracker deleted: ' + str(carID) + '.')
