@@ -7,6 +7,22 @@ import statistics as st
 
 carCascade = cv2.CascadeClassifier('myhaar.xml')
 video = cv2.VideoCapture('video//prvi.mkv')
+lk_params = dict(winSize = (15, 15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+def find_distance(r1, c1, r2, c2):
+	d = m.sqrt(m.pow(r2 - r1, 2) + m.pow(c2 - c1, 2))
+	return d
+
+def find_center(corners):
+	x, y = 0, 0
+	for corner in corners:
+		y += corner[0][1]
+		x += corner[0][0]
+			
+	center_row = int(1.0 * y / len(corners))
+	center_col = int(1.0 * x / len(corners))
+	
+	return center_row, center_col
 
 #------------------------------------------------------------------------------------------
 # Speed estimation
@@ -68,7 +84,9 @@ def estimate_speed(bbox_p, bbox_c, seconds):
 # Detection and tracking
 #---------------------------------------------------------------------
 def tracker():
-	rectangleColor = (0, 0, 255)
+	red = (0, 0, 255)
+	blue = (255, 0, 0)
+	green = (0, 255, 0)
 	frameCounter = 0
 	currentCarID = 0
 	
@@ -78,13 +96,14 @@ def tracker():
 	
 	#~ dictionary for trackers
 	carTracker = {}
+	corners = np.array([])
+	old_frame_gray = np.ndarray([])
 
 	while True:
 		#~ read frame and check it, if it is not frame break
 		rc, image = video.read()
 		if type(image) == type(None):
 			break
-		
 		#~ start time of iteration
 		#~ crop frame
 		#~ copy cropped frame
@@ -127,8 +146,8 @@ def tracker():
 			cars = carCascade.detectMultiScale(gray, 1.1, 13)
 			#~ if object is detected, save it location and calculate center point of bounding box
 			for (_x, _y, _w, _h) in cars:
-				x = int(_x) + 5
-				y = int(_y) + 5
+				x = int(_x) + 7
+				y = int(_y) + 7
 				w = int(_w) - 5
 				h = int(_h) - 5
 				
@@ -164,6 +183,18 @@ def tracker():
 						carTracker[currentCarID] = tracker
 						previous_location[currentCarID] = bbox
 						currentCarID = currentCarID + 1
+						
+						#--------------------------------
+						# Corner detection
+						#--------------------------------
+						old_frame_gray = np.float32(old_frame_gray)
+						corners = cv2.goodFeaturesToTrack(old_frame_gray, 50, 0.01, 5)
+						if type(corners) != type(None):
+							corners = np.float32(corners)
+						for i in corners:
+							x,y = i.ravel()
+							if bbox[0] < x < bbox[0] + bbox[2] and bbox[1] < y < bbox[0] + bbox[3]:
+								cv2.circle(resultImage, (x, y), 5, 255)
 		
 		#~ in every frame iterate trough trackers
 		for carID in carTracker.keys():
@@ -180,18 +211,36 @@ def tracker():
 			bbox = (t_x, t_y, t_w, t_h)
 			
 			#~ if detected object don't have tracker yet
-			corners = cv2.goodFeaturesToTrack(gray, 25, 0.01, 10)
-			if type(corners) != type(None):
-				corners = np.int0(corners)
-			for i in corners:
-				x,y = i.ravel()
-				if t_x < x < t_x + t_w and t_y < y < t_y + t_h:
-					cv2.circle(resultImage, (x, y), 5, 255, -1)
 			
+			#---------------------------------
+			# Optical flow 
+			#---------------------------------
+			old_corners = corners.copy()
+			if len(old_corners) > 0:
+				ret, frame = video.read()
+				if type(frame) == type(None):
+					break
+				frame = frame[150:720, 0:950]
+				gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+				new_corners, st, err = cv2.calcOpticalFlowPyrLK(old_frame_gray, gray, old_corners, None, **lk_params)
+				center_row, center_col = find_center(new_corners)
+				cv2.circle(resultImage, (center_col, center_row), 5, blue, 3)
+				corners_update = new_corners.copy()
+				to_delete = []
+				for i in range(len(new_corners)):
+					if find_distance(new_corners[i][0][1], new_corners[i][0][0], center_row, center_col) > 30:
+						to_delete.append(i)
+				corners_update = np.delete(corners_update, to_delete, 0)
+				for corner in corners_update:
+					cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, 3)
+				
+				old_corners = new_corners.copy()
+				old_frame_gray = gray.copy()
+							
 			#~ save location for speed estimation
 			#~ draw new rectangle in frame 
 			current_location[carID] = bbox
-			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), rectangleColor, 2)
+			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), red, 2)
 		
 		#~ end time of iteration
 		#~ calculate time in seconds
@@ -212,7 +261,6 @@ def tracker():
 			previous_location[i] = current_location[i]
 			if bbox_p != bbox_c:
 				estimate_speed(bbox_p, bbox_c, seconds)
-		
 		#~ show results
 		#~ wait for esc to terminate
 		cv2.imshow('image', resultImage)
