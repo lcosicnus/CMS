@@ -96,8 +96,8 @@ def tracker():
 	
 	#~ dictionary for trackers
 	carTracker = {}
-	corners = np.array([])
-	old_frame_gray = np.ndarray([])
+	#~ corners = np.array([])
+	#~ old_frame_gray = np.ndarray([])
 
 	while True:
 		#~ read frame and check it, if it is not frame break
@@ -163,7 +163,7 @@ def tracker():
 					t_x, t_y, t_w, t_h = trackedPosition[1]
 					t_x = int(t_x)
 					t_y = int(t_y)
-					t_w = int(t_w)
+					t_w = int(t_w)22 petar grašo
 					t_h = int(t_h)
 
 					t_x_bar = t_x + 0.5 * t_w
@@ -187,14 +187,16 @@ def tracker():
 						#--------------------------------
 						# Corner detection
 						#--------------------------------
-						old_frame_gray = np.float32(old_frame_gray)
-						corners = cv2.goodFeaturesToTrack(old_frame_gray, 50, 0.01, 5)
+						ROI = gray[y:y + h, x:x + h]
+						corners = cv2.goodFeaturesToTrack(ROI, 50, 0.01, 5)
 						if type(corners) != type(None):
 							corners = np.float32(corners)
-						for i in corners:
-							x,y = i.ravel()
-							if bbox[0] < x < bbox[0] + bbox[2] and bbox[1] < y < bbox[0] + bbox[3]:
-								cv2.circle(resultImage, (x, y), 5, 255)
+							corners[:, 0, 0] += x
+							corners[:, 0, 1] += y
+							for i in corners:
+								x,y = i.ravel()
+								if bbox[0] < x < bbox[0] + bbox[2] and bbox[1] < y < bbox[0] + bbox[3]:
+									cv2.circle(resultImage, (x, y), 5, 255)
 		
 		#~ in every frame iterate trough trackers
 		for carID in carTracker.keys():
@@ -210,8 +212,6 @@ def tracker():
 			t_y_bar = t_y + 0.5 * t_h
 			bbox = (t_x, t_y, t_w, t_h)
 			
-			#~ if detected object don't have tracker yet
-			
 			#---------------------------------
 			# Optical flow 
 			#---------------------------------
@@ -222,7 +222,7 @@ def tracker():
 					break
 				frame = frame[150:720, 0:950]
 				gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-				new_corners, st, err = cv2.calcOpticalFlowPyrLK(old_frame_gray, gray, old_corners, None, **lk_params)
+				new_corners, st, err = cv2.calcOpticalFlowPyrLK(gray, gray_frame, old_corners, None, **lk_params)
 				center_row, center_col = find_center(new_corners)
 				cv2.circle(resultImage, (center_col, center_row), 5, blue, 3)
 				corners_update = new_corners.copy()
@@ -232,13 +232,14 @@ def tracker():
 						to_delete.append(i)
 				corners_update = np.delete(corners_update, to_delete, 0)
 				for corner in corners_update:
-					cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, 3)
+					if t_x < corner[0][0] < t_x + t_w and t_y < corner[0][1] < t_y + t_w:
+						cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, 3)
 				
 				old_corners = new_corners.copy()
-				old_frame_gray = gray.copy()
+				old_frame_gray = gray_frame.copy()
 							
-			#~ save location for speed estimation
-			#~ draw new rectangle in frame 
+			save location for speed estimation
+			draw new rectangle in frame 
 			current_location[carID] = bbox
 			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), red, 2)
 		
@@ -260,7 +261,7 @@ def tracker():
 			bbox_c = current_location[i]
 			previous_location[i] = current_location[i]
 			if bbox_p != bbox_c:
-				estimate_speed(bbox_p, bbox_c, seconds)
+				speed = estimate_speed(bbox_p, bbox_c, seconds)
 		#~ show results
 		#~ wait for esc to terminate
 		cv2.imshow('image', resultImage)
