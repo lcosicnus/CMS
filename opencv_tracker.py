@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import statistics as st
 
 carCascade = cv2.CascadeClassifier('myhaar.xml')
-video = cv2.VideoCapture('video//prvi.mkv')
+video = cv2.VideoCapture('video//cetvrti.mkv')
 lk_params = dict(winSize = (15, 15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 def find_distance(r1, c1, r2, c2):
@@ -132,6 +132,10 @@ def tracker():
 			#~ if object leave frame add tracker to delete list
 			if t_x + t_w >= 750:
 				carIDtoDelete.append(carID)
+			elif t_y >= 570 or t_y <= 0:
+				carIDtoDelete.append(carID) 
+			elif t_x <= 0:
+				carIDtoDelete.append(carID)
 		
 		#~ delete all trackers in delete list		
 		for carID in carIDtoDelete:
@@ -163,7 +167,7 @@ def tracker():
 					t_x, t_y, t_w, t_h = trackedPosition[1]
 					t_x = int(t_x)
 					t_y = int(t_y)
-					t_w = int(t_w)22 petar grašo
+					t_w = int(t_w)
 					t_h = int(t_h)
 
 					t_x_bar = t_x + 0.5 * t_w
@@ -238,8 +242,8 @@ def tracker():
 				old_corners = new_corners.copy()
 				old_frame_gray = gray_frame.copy()
 							
-			save location for speed estimation
-			draw new rectangle in frame 
+			#~ save location for speed estimation
+			#~ draw new rectangle in frame 
 			current_location[carID] = bbox
 			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), red, 2)
 		
@@ -253,15 +257,15 @@ def tracker():
 		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (800, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 		
 		#~ iterate trough locations
-		for i in previous_location.keys():
+		#~ for i in previous_location.keys():
 			#~ save location to local variables
 			#~ current location is new previous location
 			#~ if coordinates of location is different estimate speed
-			bbox_p = previous_location[i]
-			bbox_c = current_location[i]
-			previous_location[i] = current_location[i]
-			if bbox_p != bbox_c:
-				speed = estimate_speed(bbox_p, bbox_c, seconds)
+			#~ bbox_p = previous_location[i]
+			#~ bbox_c = current_location[i]
+			#~ previous_location[i] = current_location[i]
+			#~ if bbox_p != bbox_c:
+				#~ speed = estimate_speed(bbox_p, bbox_c, seconds)
 		#~ show results
 		#~ wait for esc to terminate
 		cv2.imshow('image', resultImage)
