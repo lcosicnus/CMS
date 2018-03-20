@@ -9,8 +9,8 @@ carCascade = cv2.CascadeClassifier('myhaar.xml')
 video = cv2.VideoCapture('video//prvi.mkv')
 lk_params = dict(winSize = (15, 15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-def find_distance(y1, x1, y2, x2):
-	d = m.sqrt(m.pow(y2 - y1, 2) + m.pow(x2 - x1, 2))
+def find_distance(r1, c1, r2, c2):
+	d = m.sqrt(m.pow(r2 - r1, 2) + m.pow(c2 - c1, 2))
 	return d
 
 def find_center(corners):
@@ -19,10 +19,10 @@ def find_center(corners):
 		y += corner[0][1]
 		x += corner[0][0]
 			
-	center_y = int(1.0 * y / len(corners))
-	center_x = int(1.0 * x / len(corners))
+	center_row = int(1.0 * y / len(corners))
+	center_col = int(1.0 * x / len(corners))
 	
-	return center_y, center_x
+	return (center_col, center_row)
 
 #------------------------------------------------------------------------------------------
 # Speed estimation
@@ -94,15 +94,15 @@ def tracker():
 	previous_location = {}
 	current_location = {}
 	
-	#~ dictionary for corners
-	corners_location1 = {}
-	corners_location2 = {}
-	corners_location_update = {}
-	center_row_loc = {}
-	center_col_loc = {}
-	
 	#~ dictionary for trackers
 	carTracker = {}
+	
+	#~ dictionary for corners
+	corners1 = {}
+	corners2 = {}
+	corners_update = {}
+	corners_center = {}
+	
 	#~ corners = np.array([])
 	#~ old_frame_gray = np.ndarray([])
 
@@ -116,7 +116,7 @@ def tracker():
 		#~ copy cropped frame
 		#~ add 1 to frame counter
 		start = time.time()
-		image = image[150:720, 150:950]
+		image = image[150:600, 150:950]
 		resultImage = image.copy()
 		frameCounter = frameCounter + 1
 		
@@ -147,14 +147,23 @@ def tracker():
 		#~ delete all trackers in delete list		
 		for carID in carIDtoDelete:
 			print('Tracker deleted: ' + str(carID) + '.')
+			print('Current location deleted: ' + str(carID) + '.')
+			print('Previous location deleted: ' + str(carID) + '.')
+			print('Corners 1 deleted: ' + str(carID) + '.')
+			print('Corners 2 deleted: ' + str(carID) + '.')
+			print('\n')
 			carTracker.pop(carID, None)
+			current_location.pop(carID, None)
+			previous_location.pop(carID, None)
+			corners1.pop(carID, None)
+			corners2.pop(carID, None)
 		
 		#~ try to detect new object in frame in every 10 frames
 		if not (frameCounter % 10):
 			#~ convert frame to grayscale
 			#~ try to detect new object in frame 
 			gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-			cars = carCascade.detectMultiScale(gray, 1.1, 13)
+			cars = carCascade.detectMultiScale(gray, 1.1, 15)
 			#~ if object is detected, save it location and calculate center point of bounding box
 			for (_x, _y, _w, _h) in cars:
 				x = int(_x) + 7
@@ -193,22 +202,13 @@ def tracker():
 						tracker.init(image, bbox)
 						carTracker[currentCarID] = tracker
 						previous_location[currentCarID] = bbox
-						#~ currentCarID = currentCarID + 1
-						
-						#--------------------------------
-						# Corner detection
-						#--------------------------------
 						ROI = gray[y:y + h, x:x + h]
-						corners = cv2.goodFeaturesToTrack(ROI, 50, 0.01, 10)
-						if type(corners) != type(None):
-							corners = np.float32(corners)
-							corners[:, 0, 0] += x
-							corners[:, 0, 1] += y
-							corners_location1[currentCarID] = corners
-							for i in corners:
-								x,y = i.ravel()
-								if bbox[0] < x < bbox[0] + bbox[2] and bbox[1] < y < bbox[0] + bbox[3]:
-									cv2.circle(resultImage, (x, y), 5, green)
+						corners1[currentCarID] = cv2.goodFeaturesToTrack(ROI, 10, 0.3, 5)
+						corners1[currentCarID][:, 0, 0] += x
+						corners1[currentCarID][:, 0, 1] += y
+						for i in corners1[currentCarID]:
+							x, y = i.ravel()
+							cv2.circle(resultImage, (x, y), 5, green, thickness = -1)
 						currentCarID = currentCarID + 1
 		
 		#~ in every frame iterate trough trackers
@@ -224,31 +224,20 @@ def tracker():
 			t_x_bar = t_x + 0.5 * t_w
 			t_y_bar = t_y + 0.5 * t_h
 			bbox = (t_x, t_y, t_w, t_h)
-			
-			#---------------------------------
-			# Optical flow 
-			#---------------------------------
-			if len(corners_location1[carID]) > 0:
+			if len(corners1[carID]):
 				ret, frame = video.read()
 				if type(frame) == type(None):
 					break
-				frame = frame[150:720, 150:950]
-				gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-				corners_location2[carID], st, err = cv2.calcOpticalFlowPyrLK(gray, gray_frame, corners_location1[carID], None, **lk_params)
-				center_row_loc[carID], center_col_loc[carID] = find_center(corners_location2[carID])
-				#~ cv2.circle(resultImage, (center_col_loc[carID], center_row_loc[carID]), 7, blue, -1)
-				corners_location_update[carID] = corners_location2[carID].copy()
-				to_delete = []
-				for i in range(len(corners_location2[carID])):
-					if find_distance(corners_location2[carID][i][0][1], corners_location2[carID][i][0][0], center_row_loc[carID], center_col_loc[carID]) > 90:
-						to_delete.append(i)
-				corners_location_update[carID] = np.delete(corners_location_update[carID], to_delete, 0)
-				for corner in corners_location_update[carID]:
-					if t_x < corner[0][0] < t_x + t_w and t_y < corner[0][1] < t_y + t_w:
-						cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, 3)
-				
-				corners_location1[carID] = corners_location2[carID]
-				gray = gray_frame.copy()
+				frame = frame[150:600, 150:950]
+				gray2 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+				corners2[carID], st, err = cv2.calcOpticalFlowPyrLK(gray, gray2, corners1[carID], None, **lk_params)
+				corners_center[carID] = find_center(corners2[carID])
+				#~ print(corners_center[carID])
+				cv2.circle(resultImage, corners_center[carID], 5, blue, thickness = -1)
+				for corner in corners2[carID]:
+					cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, -1)
+				corners1[carID] = corners2[carID].copy()
+				gray = gray2.copy()
 									
 			#~ save location for speed estimation
 			#~ draw new rectangle in frame 
@@ -262,7 +251,7 @@ def tracker():
 		end = time.time()
 		seconds = end - start
 		fps = 1.0 / seconds
-		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (800, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
+		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 		
 		#~ iterate trough locations
 		#~ for i in previous_location.keys():

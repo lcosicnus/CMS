@@ -88,7 +88,7 @@ def track_features(old_frame, old_corners):
 			toDelete = []
 			
 			for i in range(len(corners)):
-				if find_distance(corners[i][0][1], corners[i][0][0], center_row, center_col) > 30:
+				if find_distance(corners[i][0][1], corners[i][0][0], center_row, center_col) > 90:
 					toDelete.append(i)
 			
 			corners_update = np.delete(corners_update, toDelete, 0)
@@ -100,7 +100,7 @@ def track_features(old_frame, old_corners):
 				for x, y, w, h in cars:
 					found += 1
 					if found == 1:
-						corners_update = detect_features(x + 8, y + 8, w, h)
+						corners_update = detect_features(x + 4, y + 4, w -7, h - 7)
 						if type(corners_update) == type(None):
 							break
 						center_row, center_col = find_center(corners_update)
