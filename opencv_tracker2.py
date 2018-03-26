@@ -9,8 +9,8 @@ carCascade = cv2.CascadeClassifier('myhaar.xml')
 video = cv2.VideoCapture('video//prvi.mkv')
 lk_params = dict(winSize = (15, 15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-def find_distance(r1, c1, r2, c2):
-	d = m.sqrt(m.pow(r2 - r1, 2) + m.pow(c2 - c1, 2))
+def find_distance(x1, y1, x2, y2):
+	d = m.sqrt(m.pow(float(x2) - x1, 2) + m.pow(float(y2) - y1, 2))
 	return d
 
 def find_center(corners):
@@ -27,58 +27,20 @@ def find_center(corners):
 #------------------------------------------------------------------------------------------
 # Speed estimation
 #------------------------------------------------------------------------------------------
-def estimate_speed(bbox_p, bbox_c, seconds):
-	#~ if some of coordinates is 0, estimated speed is 0
-	for i in range(0, len(bbox_p)):
-		if bbox_p[i] == 0 or bbox_c[i] == 0:
-			return 0.000000000000001
+def estimate_speed(c1, c2, seconds, w1, w2, fc):
+	if not (fc % 8):
+		distance_pixels = find_distance(c1[0], c1[1], c2[0], c2[1])
+		#~ print distance_pixels
+		#~ print w1
+		#~ print w2
+		ppm = ((w1 + w2) / 2.0) / 2.0
+		meters = distance_pixels / ppm
+		v = meters / seconds
+		print v
+		
 	
-	#~ calculate center point of previous bounding box
-	#~ print x and y coordinates of top left point of bounding box
-	#~ print width and height of bounding box and calculated center point of bounding box
-	center_p_x = bbox_p[0] + 0.5 * bbox_p[2]
-	center_p_y = bbox_p[1] + 0.5 * bbox_p[3]
 	
-	print('previous: ')
-	print('x = ' + str(bbox_p[0]))
-	print('y = ' + str(bbox_p[1]))
-	print('w = ' + str(bbox_p[2]))
-	print('h = ' + str(bbox_p[3]))
-	print(center_p_x)
-	print(center_p_y)
-
-	#~ calculate center point of current bounding box
-	#~ print x and y coordinates of top left point of bounding box
-	#~ print width and height of bounding box and calculated center point of bounding box
-	center_c_x = bbox_c[0] + 0.5 * bbox_c[2]
-	center_c_y = bbox_c[1] + 0.5 * bbox_c[3]
-
-	print('current: ')
-	print('x = ' + str(bbox_c[0]))
-	print('y = ' + str(bbox_c[1]))
-	print('w = ' + str(bbox_c[2]))
-	print('h = ' + str(bbox_c[3]))
-	print(center_c_x)
-	print(center_c_y)
 	
-	#~ calculate difference between center points
-	#~ ppm - pixels per meter, width of car divided by 2
-	#~ distance in meters is equal distance in pixels diveded by ppm
-	distance_pixels = m.sqrt(m.pow(float(center_c_x - center_p_x), 2) + m.pow(float(center_c_y - center_p_y), 2))
-	ppm = ((bbox_c[2] + bbox_p[2]) / 2.0) / 2.0
-	distance_meters = distance_pixels / ppm
-	
-	#~ speed v = s[m]/t[s]
-	speed = distance_meters / seconds
-	
-	#~ print ppm, time, s[pixels], s[meters], velocity
-	#~ return calculated speed
-	print('ppm = ' + str(ppm))
-	print('t = ' + str(seconds) + ' s')
-	print('s = ' + str(distance_pixels) + ' pixel')
-	print('s = ' + str(distance_meters) + ' m')
-	print('v = ' + str("%.2f" % round(speed, 2)) + ' m/s\n')
-	return speed
 
 #---------------------------------------------------------------------
 # Detection and tracking
@@ -102,6 +64,11 @@ def tracker():
 	corners2 = {}
 	corners_update = {}
 	corners_center = {}
+	#--
+	old_corners_center = {}
+	width1 = {}
+	width2 = {}
+	#--
 	
 	#~ corners = np.array([])
 	#~ old_frame_gray = np.ndarray([])
@@ -151,19 +118,23 @@ def tracker():
 			print('Previous location deleted: ' + str(carID) + '.')
 			print('Corners 1 deleted: ' + str(carID) + '.')
 			print('Corners 2 deleted: ' + str(carID) + '.')
+			print('Width 1 deleted: ' + str(carID) + '.')
+			print('Width 2 deleted: ' + str(carID) + '.')
 			print('\n')
 			carTracker.pop(carID, None)
 			current_location.pop(carID, None)
 			previous_location.pop(carID, None)
 			corners1.pop(carID, None)
 			corners2.pop(carID, None)
+			width1.pop(carID, None)
+			width2.pop(carID, None)
 		
 		#~ try to detect new object in frame in every 10 frames
 		if not (frameCounter % 10):
 			#~ convert frame to grayscale
 			#~ try to detect new object in frame 
 			gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-			cars = carCascade.detectMultiScale(gray, 1.1, 15)
+			cars = carCascade.detectMultiScale(gray, 1.15, 15)
 			#~ if object is detected, save it location and calculate center point of bounding box
 			for (_x, _y, _w, _h) in cars:
 				x = int(_x) + 7
@@ -197,18 +168,22 @@ def tracker():
 				#~ save object location for speed estimation
 				if matchCarID is None:
 					bbox = (x, y, w, h)
-					if bbox[0] < 500 or bbox[1] < 100:
+					if bbox[0] + bbox[2] < 400 and bbox[1] < 100 and bbox[0] > 70:
 						tracker = cv2.TrackerMedianFlow_create()
 						tracker.init(image, bbox)
 						carTracker[currentCarID] = tracker
 						previous_location[currentCarID] = bbox
 						ROI = gray[y:y + h, x:x + h]
-						corners1[currentCarID] = cv2.goodFeaturesToTrack(ROI, 10, 0.3, 5)
+						corners1[currentCarID] = cv2.goodFeaturesToTrack(ROI, 10, 0.25, 5)
 						corners1[currentCarID][:, 0, 0] += x
 						corners1[currentCarID][:, 0, 1] += y
 						for i in corners1[currentCarID]:
 							x, y = i.ravel()
 							cv2.circle(resultImage, (x, y), 5, green, thickness = -1)
+						#--
+						width1[currentCarID] = bbox[2]
+						old_corners_center[currentCarID] = find_center(corners1[currentCarID])
+						#--
 						currentCarID = currentCarID + 1
 		
 		#~ in every frame iterate trough trackers
@@ -224,6 +199,8 @@ def tracker():
 			t_x_bar = t_x + 0.5 * t_w
 			t_y_bar = t_y + 0.5 * t_h
 			bbox = (t_x, t_y, t_w, t_h)
+			width2[carID] = bbox[2]
+
 			if len(corners1[carID]):
 				ret, frame = video.read()
 				if type(frame) == type(None):
@@ -253,16 +230,21 @@ def tracker():
 		fps = 1.0 / seconds
 		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 		
+		#--
 		#~ iterate trough locations
-		#~ for i in previous_location.keys():
+		for i in corners_center.keys():
 			#~ save location to local variables
+			width_index = 0
+			for j in width1.keys():
+				width_index = j
 			#~ current location is new previous location
 			#~ if coordinates of location is different estimate speed
-			#~ bbox_p = previous_location[i]
-			#~ bbox_c = current_location[i]
-			#~ previous_location[i] = current_location[i]
-			#~ if bbox_p != bbox_c:
-				#~ speed = estimate_speed(bbox_p, bbox_c, seconds)
+			if old_corners_center[i] != corners_center[i]:
+				speed = estimate_speed(old_corners_center[i], corners_center[i], seconds, width1[width_index], width2[width_index], frameCounter)
+			old_corners_center[i] = corners_center[i]
+			if len(width1):
+				width1[width_index] = width2[width_index]
+		#--
 		#~ show results
 		#~ wait for esc to terminate
 		cv2.imshow('image', resultImage)
