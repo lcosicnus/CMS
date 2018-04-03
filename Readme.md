@@ -8,7 +8,7 @@ Tracking algorithms are used in CMS.py and opencv_tracker.py. CMS script use dli
 To start script:
 Linux:
 python <name_of_script>.py, example python carDet.py
-Widowns:
+Widowns:<br />
 <name_of_script>.py, carDet.py
 
 
