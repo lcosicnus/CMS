@@ -28,20 +28,18 @@ def find_center(corners):
 # Speed estimation
 #------------------------------------------------------------------------------------------
 def estimate_speed(c1, c2, seconds, w1, w2, fc):
-	if not (fc % 8):
-		distance_pixels = find_distance(c1[0], c1[1], c2[0], c2[1])
-		#~ print distance_pixels
-		#~ print w1
-		#~ print w2
-		ppm = ((w1 + w2) / 2.0) / 2.0
-		meters = distance_pixels / ppm
-		v = meters / seconds
-		print v
-		
+	#~ if not (fc % 10):
+	distance_pixels = find_distance(c1[0], c1[1], c2[0], c2[1])
+	#~ print '\nd_px\t' + str(distance_pixels) + '\tpx'
+	mpp = 1.8 / ((w1 + w2) / 2.0) 
+	meters = distance_pixels * mpp
+	#~ print 'm\t' + str(meters) + '\tm'
+	#~ print 't\t' + str(seconds) + '\ts'
+	#~ print '8t\t' + str(seconds * 5) + '\ts'
+	v = meters / (seconds * 10)
+	v_kph = v * 3.6
+	print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h'
 	
-	
-	
-
 #---------------------------------------------------------------------
 # Detection and tracking
 #---------------------------------------------------------------------
@@ -58,7 +56,7 @@ def tracker():
 	
 	#~ dictionary for trackers
 	carTracker = {}
-	
+
 	#~ dictionary for corners
 	corners1 = {}
 	corners2 = {}
@@ -69,9 +67,6 @@ def tracker():
 	width1 = {}
 	width2 = {}
 	#--
-	
-	#~ corners = np.array([])
-	#~ old_frame_gray = np.ndarray([])
 
 	while True:
 		#~ read frame and check it, if it is not frame break
@@ -248,37 +243,10 @@ def tracker():
 		#~ show results
 		#~ wait for esc to terminate
 		cv2.imshow('image', resultImage)
+
 		if cv2.waitKey(33) == 27:
 			break
 	#~ close all open
 	cv2.destroyAllWindows()
 if __name__ == '__main__':
 	tracker()
-
-#-------------------------------------------------------------------------------------
-#Corner detection
-#-------------------------------------------------------------------------------------
-#~ gray_ROI = gray[y:y + h, x:x + w]
-#~ corners = cv2.goodFeaturesToTrack(gray_ROI, 25, 0.01, 10)
-#~ if type(corners) != type(None):
-	#~ corners = np.int0(corners)
-#~ for i in corners:
-	#~ x,y = i.ravel()
-	#~ cv2.circle(resultImage, (x, y), 3, 255, 2)
-
-#----------------------------
-# Statistics
-#----------------------------
-#~ med = []
-#~ average = []
-#~ i = range(0, len(v))
-#~ avg = np.mean(v)
-#~ m = st.median(v)
-#~ for x in i:
-	#~ average.append(avg)
-	#~ med.append(m)
-#~ plt.plot(i, v)
-#~ plt.plot(i, average)
-#~ plt.plot(i, med)
-#~ plt.legend(['speed', 'average', 'median'])
-#~ plt.show()
