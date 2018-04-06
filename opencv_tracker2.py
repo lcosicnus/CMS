@@ -36,9 +36,10 @@ def estimate_speed(c1, c2, seconds, w1, w2, fc):
 	#~ print 'm\t' + str(meters) + '\tm'
 	#~ print 't\t' + str(seconds) + '\ts'
 	#~ print '8t\t' + str(seconds * 5) + '\ts'
-	v = meters / (seconds * 10)
+	v = meters / (seconds)
 	v_kph = v * 3.6
-	print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h'
+	print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h' + '\t'
+
 	
 #---------------------------------------------------------------------
 # Detection and tracking
@@ -66,6 +67,9 @@ def tracker():
 	old_corners_center = {}
 	width1 = {}
 	width2 = {}
+	speed = {}
+	time1 = {}
+	time2 = {}
 	#--
 
 	while True:
@@ -123,6 +127,10 @@ def tracker():
 			corners2.pop(carID, None)
 			width1.pop(carID, None)
 			width2.pop(carID, None)
+			time1.pop(carID, None)
+			time2.pop(carID, None)
+			corners_center.pop(carID, None)
+			old_corners_center.pop(carID, None)
 		
 		#~ try to detect new object in frame in every 10 frames
 		if not (frameCounter % 10):
@@ -179,6 +187,7 @@ def tracker():
 						width1[currentCarID] = bbox[2]
 						old_corners_center[currentCarID] = find_center(corners1[currentCarID])
 						#--
+						time1[currentCarID] = time.time()
 						currentCarID = currentCarID + 1
 		
 		#~ in every frame iterate trough trackers
@@ -209,6 +218,7 @@ def tracker():
 				for corner in corners2[carID]:
 					cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, -1)
 				corners1[carID] = corners2[carID].copy()
+				time2[carID] = time.time()
 				gray = gray2.copy()
 									
 			#~ save location for speed estimation
@@ -229,16 +239,18 @@ def tracker():
 		#~ iterate trough locations
 		for i in corners_center.keys():
 			#~ save location to local variables
-			width_index = 0
-			for j in width1.keys():
-				width_index = j
+			#~ width_index = 0
+			#~ for j in width1.keys():
+				#~ width_index = j
 			#~ current location is new previous location
 			#~ if coordinates of location is different estimate speed
-			if old_corners_center[i] != corners_center[i]:
-				speed = estimate_speed(old_corners_center[i], corners_center[i], seconds, width1[width_index], width2[width_index], frameCounter)
+			sec = time2[i] - time1[i]
+			if old_corners_center[i] != corners_center[i] and sec >= 0.01 and sec < 0.1:
+				speed = estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], frameCounter)
 			old_corners_center[i] = corners_center[i]
-			if len(width1):
-				width1[width_index] = width2[width_index]
+			time1[i] = time2[i]
+			#~ if len(width1):
+			width1[i] = width2[i]
 		#--
 		#~ show results
 		#~ wait for esc to terminate
