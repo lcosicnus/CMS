@@ -1,49 +1,63 @@
-import cv2
 import math as m
-import numpy as np
-import time
-import matplotlib.pyplot as plt
 import statistics as st
+import time
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
 
 carCascade = cv2.CascadeClassifier('myhaar.xml')
 video = cv2.VideoCapture('video//prvi.mkv')
-lk_params = dict(winSize = (15, 15), maxLevel = 2, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+lk_params = dict(winSize = (15, 15),maxLevel = 2,criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+velocity = {}
+
 
 def find_distance(x1, y1, x2, y2):
 	d = m.sqrt(m.pow(float(x2) - x1, 2) + m.pow(float(y2) - y1, 2))
 	return d
+
 
 def find_center(corners):
 	x, y = 0, 0
 	for corner in corners:
 		y += corner[0][1]
 		x += corner[0][0]
-			
 	center_row = int(1.0 * y / len(corners))
 	center_col = int(1.0 * x / len(corners))
-	
 	return (center_col, center_row)
 
-#------------------------------------------------------------------------------------------
 # Speed estimation
-#------------------------------------------------------------------------------------------
-def estimate_speed(c1, c2, seconds, w1, w2, fc):
-	#~ if not (fc % 10):
+
+def estimate_speed(c1, c2, seconds, w1, w2, carID):
+	# if not (fc % 10):
+	n = 0
 	distance_pixels = find_distance(c1[0], c1[1], c2[0], c2[1])
-	#~ print '\nd_px\t' + str(distance_pixels) + '\tpx'
+	# print '\nd_px\t' + str(distance_pixels) + '\tpx'
 	mpp = 1.8 / ((w1 + w2) / 2.0) 
 	meters = distance_pixels * mpp
-	#~ print 'm\t' + str(meters) + '\tm'
-	#~ print 't\t' + str(seconds) + '\ts'
-	#~ print '8t\t' + str(seconds * 5) + '\ts'
 	v = meters / (seconds)
 	v_kph = v * 3.6
-	print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h' + '\t'
-
+	# print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h' + '\t'
+	# Filtriranje brzine
+	if carID in velocity.keys():
+		i = len(velocity[carID])
+		speed = []
+		if i < 5:
+			velocity[carID].append(v_kph)
+		else:
+			speed = velocity[carID][-5:]
+			avg_speed = np.mean(speed)
+			# print avg_speed
+			if abs(v_kph - avg_speed) < 2:
+				velocity[carID].append(v_kph)
+				print 'Car ' + str(carID) + ' new speed is: ' + str(velocity[carID][-1:])
+	else:
+    		velocity[carID] = [v_kph]
 	
-#---------------------------------------------------------------------
+
 # Detection and tracking
-#---------------------------------------------------------------------
+
+
 def tracker():
 	red = (0, 0, 255)
 	blue = (255, 0, 0)
@@ -51,47 +65,44 @@ def tracker():
 	frameCounter = 0
 	currentCarID = 0
 	
-	#~ dictionary for locations
+	# dictionary for locations
 	previous_location = {}
 	current_location = {}
 	
-	#~ dictionary for trackers
+	# dictionary for trackers
 	carTracker = {}
 
-	#~ dictionary for corners
+	# dictionary for corners
 	corners1 = {}
 	corners2 = {}
 	corners_update = {}
 	corners_center = {}
-	#--
 	old_corners_center = {}
 	width1 = {}
 	width2 = {}
 	speed = {}
 	time1 = {}
 	time2 = {}
-	#--
-
 	while True:
-		#~ read frame and check it, if it is not frame break
+		# read frame and check it, if it is not frame break
 		rc, image = video.read()
 		if type(image) == type(None):
 			break
-		#~ start time of iteration
-		#~ crop frame
-		#~ copy cropped frame
-		#~ add 1 to frame counter
+		# start time of iteration
+		# crop frame
+		# copy cropped frame
+		# add 1 to frame counter
 		start = time.time()
 		image = image[150:600, 150:950]
 		resultImage = image.copy()
 		frameCounter = frameCounter + 1
 		
-		#~ create empty list for trackers you need to delete
+		# create empty list for trackers you need to delete
 		carIDtoDelete = []
 		
-		#~ iterate trough dictionary of created trackers and if object leave frame delete tracker
+		# iterate trough dictionary of created trackers and if object leave frame delete tracker
 		for carID in carTracker.keys():
-			#~ get position of bounding box
+			# get position of bounding box
 			trackedPosition = carTracker[carID].update(image)
 			t_x, t_y, t_w, t_h = trackedPosition[1]
 			t_x = int(t_x)
@@ -99,10 +110,10 @@ def tracker():
 			t_w = int(t_w)
 			t_h = int(t_h)
 			
-			#~ x_center = t_x + 0.5 * t_w
-			#~ y_center = t_y + 0.5 * t_h
+			# x_center = t_x + 0.5 * t_w
+			# y_center = t_y + 0.5 * t_h
 			
-			#~ if object leave frame add tracker to delete list
+			# if object leave frame add tracker to delete list
 			if t_x + t_w >= 750:
 				carIDtoDelete.append(carID)
 			elif t_y >= 570 or t_y <= 0:
@@ -110,16 +121,16 @@ def tracker():
 			elif t_x <= 0:
 				carIDtoDelete.append(carID)
 		
-		#~ delete all trackers in delete list		
+		# delete all trackers in delete list
 		for carID in carIDtoDelete:
-			print('Tracker deleted: ' + str(carID) + '.')
-			print('Current location deleted: ' + str(carID) + '.')
-			print('Previous location deleted: ' + str(carID) + '.')
-			print('Corners 1 deleted: ' + str(carID) + '.')
-			print('Corners 2 deleted: ' + str(carID) + '.')
-			print('Width 1 deleted: ' + str(carID) + '.')
-			print('Width 2 deleted: ' + str(carID) + '.')
-			print('\n')
+			# print 'Tracker deleted: ' + str(carID) + '.'
+			# print 'Current location deleted: ' + str(carID) + '.'
+			# print 'Previous location deleted: ' + str(carID) + '.'
+			# print 'Corners 1 deleted: ' + str(carID) + '.'
+			# print 'Corners 2 deleted: ' + str(carID) + '.'
+			# print 'Width 1 deleted: ' + str(carID) + '.'
+			# print 'Width 2 deleted: ' + str(carID) + '.'
+			# print '\n'
 			carTracker.pop(carID, None)
 			current_location.pop(carID, None)
 			previous_location.pop(carID, None)
@@ -132,13 +143,13 @@ def tracker():
 			corners_center.pop(carID, None)
 			old_corners_center.pop(carID, None)
 		
-		#~ try to detect new object in frame in every 10 frames
+		# try to detect new object in frame in every 10 frames
 		if not (frameCounter % 10):
-			#~ convert frame to grayscale
-			#~ try to detect new object in frame 
+			# convert frame to grayscale
+			# try to detect new object in frame 
 			gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 			cars = carCascade.detectMultiScale(gray, 1.15, 15)
-			#~ if object is detected, save it location and calculate center point of bounding box
+			# if object is detected, save it location and calculate center point of bounding box
 			for (_x, _y, _w, _h) in cars:
 				x = int(_x) + 7
 				y = int(_y) + 7
@@ -150,9 +161,9 @@ def tracker():
 				
 				matchCarID = None
 				
-				#~ iterate trough tracked objects
+				# iterate trough tracked objects
 				for carID in carTracker.keys():
-					#~ get object location and calculate center point of tracked object
+					# get object location and calculate center point of tracked object
 					trackedPosition = carTracker[carID].update(image)
 					t_x, t_y, t_w, t_h = trackedPosition[1]
 					t_x = int(t_x)
@@ -163,12 +174,12 @@ def tracker():
 					t_x_bar = t_x + 0.5 * t_w
 					t_y_bar = t_y + 0.5 * t_h
 					
-					#~ if condition is true, detected object already have tracker 
+					# if condition is true, detected object already have tracker 
 					if ((t_x <= x_bar <= (t_x + t_w)) and (t_y <= y_bar <= (t_y + t_h)) and (x <= t_x_bar <= (x + w)) and (y <= t_y_bar <= (y + h))):
 						matchCarID = carID
 				
-				#~ if detected object don't have tracker yet, create new tracker and add it to tracker dictionary
-				#~ save object location for speed estimation
+				# if detected object don't have tracker yet, create new tracker and add it to tracker dictionary
+				# save object location for speed estimation
 				if matchCarID is None:
 					bbox = (x, y, w, h)
 					if bbox[0] + bbox[2] < 400 and bbox[1] < 100 and bbox[0] > 70:
@@ -190,9 +201,9 @@ def tracker():
 						time1[currentCarID] = time.time()
 						currentCarID = currentCarID + 1
 		
-		#~ in every frame iterate trough trackers
+		# in every frame iterate trough trackers
 		for carID in carTracker.keys():
-			#~ get position of object
+			# get position of object
 			trackedPosition = carTracker[carID].update(image)
 			t_x, t_y, t_w, t_h = trackedPosition[1]
 			t_x = int(t_x)
@@ -213,7 +224,7 @@ def tracker():
 				gray2 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 				corners2[carID], st, err = cv2.calcOpticalFlowPyrLK(gray, gray2, corners1[carID], None, **lk_params)
 				corners_center[carID] = find_center(corners2[carID])
-				#~ print(corners_center[carID])
+				# print(corners_center[carID])
 				cv2.circle(resultImage, corners_center[carID], 5, blue, thickness = -1)
 				for corner in corners2[carID]:
 					cv2.circle(resultImage, (corner[0][0], corner[0][1]), 5, green, -1)
@@ -221,44 +232,44 @@ def tracker():
 				time2[carID] = time.time()
 				gray = gray2.copy()
 									
-			#~ save location for speed estimation
-			#~ draw new rectangle in frame 
+			# save location for speed estimation
+			# draw new rectangle in frame 
 			current_location[carID] = bbox
 			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), red, 2)
 		
-		#~ end time of iteration
-		#~ calculate time in seconds
-		#~ calculate frame per seconds (fps)
-		#~ put fps on frame
+		# end time of iteration
+		# calculate time in seconds
+		# calculate frame per seconds (fps)
+		# put fps on frame
 		end = time.time()
 		seconds = end - start
 		fps = 1.0 / seconds
 		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 		
 		#--
-		#~ iterate trough locations
+		# iterate trough locations
 		for i in corners_center.keys():
-			#~ save location to local variables
-			#~ width_index = 0
-			#~ for j in width1.keys():
-				#~ width_index = j
-			#~ current location is new previous location
-			#~ if coordinates of location is different estimate speed
+			# save location to local variables
+			# width_index = 0
+			# for j in width1.keys():
+				# width_index = j
+			# current location is new previous location
+			# if coordinates of location is different estimate speed
 			sec = time2[i] - time1[i]
 			if old_corners_center[i] != corners_center[i] and sec >= 0.01 and sec < 0.1:
-				speed = estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], frameCounter)
+				estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], i)
 			old_corners_center[i] = corners_center[i]
 			time1[i] = time2[i]
-			#~ if len(width1):
+			# if len(width1):
 			width1[i] = width2[i]
 		#--
-		#~ show results
-		#~ wait for esc to terminate
+		# show results
+		# wait for esc to terminate
 		cv2.imshow('image', resultImage)
 
 		if cv2.waitKey(33) == 27:
 			break
-	#~ close all open
+	# close all open
 	cv2.destroyAllWindows()
 if __name__ == '__main__':
 	tracker()
