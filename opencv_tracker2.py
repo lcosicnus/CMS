@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 carCascade = cv2.CascadeClassifier('myhaar.xml')
-video = cv2.VideoCapture('video//prvi.mkv')
+video = cv2.VideoCapture('video//drugi.mkv')
 lk_params = dict(winSize = (15, 15),maxLevel = 2,criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 velocity = {}
 
@@ -85,6 +85,7 @@ def tracker():
 	time2 = {}
 	while True:
 		# read frame and check it, if it is not frame break
+		cv2.waitKey(33)
 		rc, image = video.read()
 		if type(image) == type(None):
 			break
@@ -92,7 +93,7 @@ def tracker():
 		# crop frame
 		# copy cropped frame
 		# add 1 to frame counter
-		start = time.time()
+		# start = time.time()
 		image = image[150:600, 150:950]
 		resultImage = image.copy()
 		frameCounter = frameCounter + 1
@@ -241,10 +242,10 @@ def tracker():
 		# calculate time in seconds
 		# calculate frame per seconds (fps)
 		# put fps on frame
-		end = time.time()
-		seconds = end - start
-		fps = 1.0 / seconds
-		cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
+		# end = time.time()
+		# seconds = end - start
+		# fps = 1.0 / seconds
+		# cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 		
 		#--
 		# iterate trough locations
@@ -266,9 +267,7 @@ def tracker():
 		# show results
 		# wait for esc to terminate
 		cv2.imshow('image', resultImage)
-
-		if cv2.waitKey(33) == 27:
-			break
+		
 	# close all open
 	cv2.destroyAllWindows()
 if __name__ == '__main__':
