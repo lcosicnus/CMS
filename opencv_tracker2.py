@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 carCascade = cv2.CascadeClassifier('myhaar.xml')
-video = cv2.VideoCapture('video//drugi.mkv')
+video = cv2.VideoCapture('video//prvi.mkv')
 lk_params = dict(winSize = (15, 15),maxLevel = 2,criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 velocity = {}
 
@@ -16,6 +16,15 @@ def find_distance(x1, y1, x2, y2):
 	d = m.sqrt(m.pow(float(x2) - x1, 2) + m.pow(float(y2) - y1, 2))
 	return d
 
+def distance(w1, w2):
+		realWidth = 1.8
+		f = 0.0022
+		imageWidth = 800
+		objectWidth = (w1 + w2) / 2.0
+		sensorWidth = 0.005376
+		distanceToObject = (f * realWidth * imageWidth) / (objectWidth * sensorWidth)
+		return distanceToObject
+		# print 'Distance to object: ' + str(distanceToObject) + ' m.'
 
 def find_center(corners):
 	x, y = 0, 0
@@ -39,6 +48,7 @@ def estimate_speed(c1, c2, seconds, w1, w2, carID):
 	v_kph = v * 3.6
 	# print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h' + '\t'
 	# Filtriranje brzine
+	
 	if carID in velocity.keys():
 		i = len(velocity[carID])
 		speed = []
@@ -50,6 +60,7 @@ def estimate_speed(c1, c2, seconds, w1, w2, carID):
 			# print avg_speed
 			if abs(v_kph - avg_speed) < 2:
 				velocity[carID].append(v_kph)
+				# distance(w1, w2)
 				print 'Car ' + str(carID) + ' new speed is: ' + str(velocity[carID][-1:])
 	else:
     		velocity[carID] = [v_kph]
@@ -85,7 +96,7 @@ def tracker():
 	time2 = {}
 	while True:
 		# read frame and check it, if it is not frame break
-		cv2.waitKey(33)
+
 		rc, image = video.read()
 		if type(image) == type(None):
 			break
@@ -259,6 +270,7 @@ def tracker():
 			sec = time2[i] - time1[i]
 			if old_corners_center[i] != corners_center[i] and sec >= 0.01 and sec < 0.1:
 				estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], i)
+				cv2.putText(resultImage, 'Distance: ' + str(int(distance(width1[i], width2[i]))), (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 			old_corners_center[i] = corners_center[i]
 			time1[i] = time2[i]
 			# if len(width1):
@@ -266,6 +278,8 @@ def tracker():
 		#--
 		# show results
 		# wait for esc to terminate
+		if cv2.waitKey(33) == 27:
+    			break
 		cv2.imshow('image', resultImage)
 		
 	# close all open
