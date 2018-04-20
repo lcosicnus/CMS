@@ -35,20 +35,20 @@ def find_center(corners):
 	center_col = int(1.0 * x / len(corners))
 	return (center_col, center_row)
 
-# Speed estimation
+def timeToCollision(v, d):
+    
+	ttc = (d / v)
+	return ttc
 
+# Speed estimation
 def estimate_speed(c1, c2, seconds, w1, w2, carID):
-	# if not (fc % 10):
 	n = 0
 	distance_pixels = find_distance(c1[0], c1[1], c2[0], c2[1])
-	# print '\nd_px\t' + str(distance_pixels) + '\tpx'
 	mpp = 1.8 / ((w1 + w2) / 2.0) 
 	meters = distance_pixels * mpp
 	v = meters / (seconds)
 	v_kph = v * 3.6
-	# print 'v\t' + str(v) + '\tm/s\t' + str(v_kph) + '\tkm/h' + '\t'
-	# Filtriranje brzine
-	
+
 	if carID in velocity.keys():
 		i = len(velocity[carID])
 		speed = []
@@ -63,12 +63,11 @@ def estimate_speed(c1, c2, seconds, w1, w2, carID):
 				# distance(w1, w2)
 				print 'Car ' + str(carID) + ' new speed is: ' + str(velocity[carID][-1:])
 	else:
-    		velocity[carID] = [v_kph]
+    		
+			velocity[carID] = [v_kph]
+	return v
 	
-
 # Detection and tracking
-
-
 def tracker():
 	red = (0, 0, 255)
 	blue = (255, 0, 0)
@@ -249,28 +248,16 @@ def tracker():
 			current_location[carID] = bbox
 			cv2.rectangle(resultImage, (t_x, t_y), (t_x + t_w, t_y + t_h), red, 2)
 		
-		# end time of iteration
-		# calculate time in seconds
-		# calculate frame per seconds (fps)
-		# put fps on frame
-		# end = time.time()
-		# seconds = end - start
-		# fps = 1.0 / seconds
-		# cv2.putText(resultImage, 'FPS: ' + 	str(int(fps)), (700, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
-		
 		#--
 		# iterate trough locations
 		for i in corners_center.keys():
-			# save location to local variables
-			# width_index = 0
-			# for j in width1.keys():
-				# width_index = j
-			# current location is new previous location
-			# if coordinates of location is different estimate speed
 			sec = time2[i] - time1[i]
 			if old_corners_center[i] != corners_center[i] and sec >= 0.01 and sec < 0.1:
-				estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], i)
-				cv2.putText(resultImage, 'Distance: ' + str(int(distance(width1[i], width2[i]))), (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
+				v = estimate_speed(old_corners_center[i], corners_center[i], sec, width1[i], width2[i], i)
+				print v
+				d = distance(width1[i], width2[i])
+				cv2.putText(resultImage, 'Distance: ' + str(int(d)) + ' m.', (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
+				cv2.putText(resultImage, 'TTC: ' + str(int(timeToCollision(v, d))) + ' s.', (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 3)
 			old_corners_center[i] = corners_center[i]
 			time1[i] = time2[i]
 			# if len(width1):
